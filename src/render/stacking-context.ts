@@ -9,6 +9,7 @@ import {OLElementContainer} from '../dom/elements/ol-element-container';
 import {LIElementContainer} from '../dom/elements/li-element-container';
 import {createCounterText} from '../css/types/functions/counter';
 import {POSITION} from '../css/property-descriptors/position';
+import {Bounds} from '../css/layout/bounds';
 
 export class StackingContext {
     element: ElementPaint;
@@ -34,11 +35,11 @@ export class StackingContext {
 
 export class ElementPaint {
     readonly effects: IElementEffect[] = [];
-    readonly curves: BoundCurves;
+    curves: BoundCurves;
     listValue?: string;
 
-    constructor(readonly container: ElementContainer, readonly parent: ElementPaint | null) {
-        this.curves = new BoundCurves(this.container);
+    constructor(readonly container: ElementContainer, readonly parent: ElementPaint | null, bounds?: Bounds) {
+        this.curves = new BoundCurves(this.container, bounds ?? container.bounds);
         if (this.container.styles.opacity < 1) {
             this.effects.push(new OpacityEffect(this.container.styles.opacity));
         }
@@ -89,6 +90,10 @@ export class ElementPaint {
         }
 
         return effects.filter((effect) => contains(effect.target, target));
+    }
+
+    cloneFromNewBounds(newBounds: Bounds): ElementPaint {
+        return new ElementPaint(this.container, this.parent, newBounds);
     }
 }
 

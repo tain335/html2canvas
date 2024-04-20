@@ -19,12 +19,15 @@ const parseNodeTree = (context: Context, node: Node, parent: ElementContainer, r
         nextNode = childNode.nextSibling;
 
         if (isTextNode(childNode) && childNode.data.trim().length > 0) {
-            parent.textNodes.push(new TextContainer(context, childNode, parent.styles));
+            const container = new TextContainer(context, childNode, parent.styles);
+            parent.textNodes.push(container);
+            parent.nodes.push(container);
         } else if (isElementNode(childNode)) {
             if (isSlotElement(childNode) && childNode.assignedNodes) {
                 childNode.assignedNodes().forEach((childNode) => parseNodeTree(context, childNode, parent, root));
             } else {
                 const container = createContainer(context, childNode);
+                parent.nodes.push(container);
                 if (container.styles.isVisible()) {
                     if (createsRealStackingContext(childNode, container, root)) {
                         container.flags |= FLAGS.CREATES_REAL_STACKING_CONTEXT;
@@ -52,6 +55,40 @@ const parseNodeTree = (context: Context, node: Node, parent: ElementContainer, r
         }
     }
 };
+
+// const computeTextNodeRect = (textNode: Node): {height: number; top: number} => {
+//     const range = document.createRange();
+//     range.setStart(textNode, 0);
+//     range.setStart(textNode, 1);
+//     const rects = range.getClientRects();
+//     if (rects.length) {
+//         return {
+//             height: rects[0].height,
+//             top: rects[0].top
+//         };
+//     }
+//     return {height: 0, top: 0};
+// };
+
+// const computeNodeRect = (node: Node): DOMRect => {
+//     const range = document.createRange();
+//     range.selectNode(node);
+// };
+
+// // 计算准确的行内元素盒子
+// const computeInlineContainers = (context: Context, element: Element): ElementContainer[] => {
+//     let lineHeight = 0;
+//     let top = 0;
+//     const textNode = document.createTextNode('x');
+//     element.insertBefore(document.createTextNode('x'), element.firstElementChild);
+//     const rect = computeTextNodeRect(textNode);
+//     lineHeight = rect.height;
+//     top = rect.top;
+//     textNode.remove();
+//     const childRects: {rect: DOMRect; node: ChildNode}[] = [];
+//     for (let i = 0; i < element.childNodes.length; i++) {}
+//     return [];
+// };
 
 const createContainer = (context: Context, element: Element): ElementContainer => {
     if (isImageElement(element)) {
@@ -110,6 +147,10 @@ const createsRealStackingContext = (node: Element, container: ElementContainer, 
 };
 
 const createsStackingContext = (styles: CSSParsedDeclaration): boolean => styles.isPositioned() || styles.isFloating();
+
+export function isInlineElement(node: Node) {
+    return getComputedStyle(node as Element).display === 'inline';
+}
 
 export const isTextNode = (node: Node): node is Text => node.nodeType === Node.TEXT_NODE;
 export const isElementNode = (node: Node): node is Element => node.nodeType === Node.ELEMENT_NODE;

@@ -3,6 +3,7 @@ import {getAbsoluteValue, getAbsoluteValueForTuple} from '../css/types/length-pe
 import {Vector} from './vector';
 import {BezierCurve} from './bezier-curve';
 import {Path} from './path';
+import {Bounds} from '../css/layout/bounds';
 
 export class BoundCurves {
     readonly topLeftBorderDoubleOuterBox: Path;
@@ -30,9 +31,8 @@ export class BoundCurves {
     readonly bottomRightContentBox: Path;
     readonly bottomLeftContentBox: Path;
 
-    constructor(element: ElementContainer) {
+    constructor(element: ElementContainer, bounds: Bounds) {
         const styles = element.styles;
-        const bounds = element.bounds;
 
         let [tlh, tlv] = getAbsoluteValueForTuple(styles.borderTopLeftRadius, bounds.width, bounds.height);
         let [trh, trv] = getAbsoluteValueForTuple(styles.borderTopRightRadius, bounds.width, bounds.height);

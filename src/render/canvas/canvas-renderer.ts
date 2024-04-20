@@ -691,98 +691,108 @@ export class CanvasRenderer extends Renderer {
     }
 
     async renderNodeBackgroundAndBorders(paint: ElementPaint): Promise<void> {
-        this.applyEffects(paint.getEffects(EffectTarget.BACKGROUND_BORDERS));
-        const styles = paint.container.styles;
-        const hasBackground = !isTransparent(styles.backgroundColor) || styles.backgroundImage.length;
+        const boundsList = paint.container.realBounds();
+        const doPaint = async (paint: ElementPaint) => {
+            this.applyEffects(paint.getEffects(EffectTarget.BACKGROUND_BORDERS));
+            const styles = paint.container.styles;
+            const hasBackground = !isTransparent(styles.backgroundColor) || styles.backgroundImage.length;
 
-        const borders = [
-            {style: styles.borderTopStyle, color: styles.borderTopColor, width: styles.borderTopWidth},
-            {style: styles.borderRightStyle, color: styles.borderRightColor, width: styles.borderRightWidth},
-            {style: styles.borderBottomStyle, color: styles.borderBottomColor, width: styles.borderBottomWidth},
-            {style: styles.borderLeftStyle, color: styles.borderLeftColor, width: styles.borderLeftWidth}
-        ];
+            const borders = [
+                {style: styles.borderTopStyle, color: styles.borderTopColor, width: styles.borderTopWidth},
+                {style: styles.borderRightStyle, color: styles.borderRightColor, width: styles.borderRightWidth},
+                {style: styles.borderBottomStyle, color: styles.borderBottomColor, width: styles.borderBottomWidth},
+                {style: styles.borderLeftStyle, color: styles.borderLeftColor, width: styles.borderLeftWidth}
+            ];
 
-        const backgroundPaintingArea = calculateBackgroundCurvedPaintingArea(
-            getBackgroundValueForIndex(styles.backgroundClip, 0),
-            paint.curves
-        );
+            const backgroundPaintingArea = calculateBackgroundCurvedPaintingArea(
+                getBackgroundValueForIndex(styles.backgroundClip, 0),
+                paint.curves
+            );
 
-        if (hasBackground || styles.boxShadow.length) {
-            this.ctx.save();
-            this.path(backgroundPaintingArea);
-            this.ctx.clip();
+            if (hasBackground || styles.boxShadow.length) {
+                this.ctx.save();
+                this.path(backgroundPaintingArea);
+                this.ctx.clip();
 
-            if (!isTransparent(styles.backgroundColor)) {
-                this.ctx.fillStyle = asString(styles.backgroundColor);
-                this.ctx.fill();
-            }
-
-            await this.renderBackgroundImage(paint.container);
-
-            this.ctx.restore();
-
-            styles.boxShadow
-                .slice(0)
-                .reverse()
-                .forEach((shadow) => {
-                    this.ctx.save();
-                    const borderBoxArea = calculateBorderBoxPath(paint.curves);
-                    const maskOffset = shadow.inset ? 0 : MASK_OFFSET;
-                    const shadowPaintingArea = transformPath(
-                        borderBoxArea,
-                        -maskOffset + (shadow.inset ? 1 : -1) * shadow.spread.number,
-                        (shadow.inset ? 1 : -1) * shadow.spread.number,
-                        shadow.spread.number * (shadow.inset ? -2 : 2),
-                        shadow.spread.number * (shadow.inset ? -2 : 2)
-                    );
-
-                    if (shadow.inset) {
-                        this.path(borderBoxArea);
-                        this.ctx.clip();
-                        this.mask(shadowPaintingArea);
-                    } else {
-                        this.mask(borderBoxArea);
-                        this.ctx.clip();
-                        this.path(shadowPaintingArea);
-                    }
-
-                    this.ctx.shadowOffsetX = shadow.offsetX.number + maskOffset;
-                    this.ctx.shadowOffsetY = shadow.offsetY.number;
-                    this.ctx.shadowColor = asString(shadow.color);
-                    this.ctx.shadowBlur = shadow.blur.number;
-                    this.ctx.fillStyle = shadow.inset ? asString(shadow.color) : 'rgba(0,0,0,1)';
-
+                if (!isTransparent(styles.backgroundColor)) {
+                    this.ctx.fillStyle = asString(styles.backgroundColor);
                     this.ctx.fill();
-                    this.ctx.restore();
-                });
-        }
-
-        let side = 0;
-        for (const border of borders) {
-            if (border.style !== BORDER_STYLE.NONE && !isTransparent(border.color) && border.width > 0) {
-                if (border.style === BORDER_STYLE.DASHED) {
-                    await this.renderDashedDottedBorder(
-                        border.color,
-                        border.width,
-                        side,
-                        paint.curves,
-                        BORDER_STYLE.DASHED
-                    );
-                } else if (border.style === BORDER_STYLE.DOTTED) {
-                    await this.renderDashedDottedBorder(
-                        border.color,
-                        border.width,
-                        side,
-                        paint.curves,
-                        BORDER_STYLE.DOTTED
-                    );
-                } else if (border.style === BORDER_STYLE.DOUBLE) {
-                    await this.renderDoubleBorder(border.color, border.width, side, paint.curves);
-                } else {
-                    await this.renderSolidBorder(border.color, side, paint.curves);
                 }
+
+                await this.renderBackgroundImage(paint.container);
+
+                this.ctx.restore();
+
+                styles.boxShadow
+                    .slice(0)
+                    .reverse()
+                    .forEach((shadow) => {
+                        this.ctx.save();
+                        const borderBoxArea = calculateBorderBoxPath(paint.curves);
+                        const maskOffset = shadow.inset ? 0 : MASK_OFFSET;
+                        const shadowPaintingArea = transformPath(
+                            borderBoxArea,
+                            -maskOffset + (shadow.inset ? 1 : -1) * shadow.spread.number,
+                            (shadow.inset ? 1 : -1) * shadow.spread.number,
+                            shadow.spread.number * (shadow.inset ? -2 : 2),
+                            shadow.spread.number * (shadow.inset ? -2 : 2)
+                        );
+
+                        if (shadow.inset) {
+                            this.path(borderBoxArea);
+                            this.ctx.clip();
+                            this.mask(shadowPaintingArea);
+                        } else {
+                            this.mask(borderBoxArea);
+                            this.ctx.clip();
+                            this.path(shadowPaintingArea);
+                        }
+
+                        this.ctx.shadowOffsetX = shadow.offsetX.number + maskOffset;
+                        this.ctx.shadowOffsetY = shadow.offsetY.number;
+                        this.ctx.shadowColor = asString(shadow.color);
+                        this.ctx.shadowBlur = shadow.blur.number;
+                        this.ctx.fillStyle = shadow.inset ? asString(shadow.color) : 'rgba(0,0,0,1)';
+
+                        this.ctx.fill();
+                        this.ctx.restore();
+                    });
             }
-            side++;
+
+            let side = 0;
+            for (const border of borders) {
+                if (border.style !== BORDER_STYLE.NONE && !isTransparent(border.color) && border.width > 0) {
+                    if (border.style === BORDER_STYLE.DASHED) {
+                        await this.renderDashedDottedBorder(
+                            border.color,
+                            border.width,
+                            side,
+                            paint.curves,
+                            BORDER_STYLE.DASHED
+                        );
+                    } else if (border.style === BORDER_STYLE.DOTTED) {
+                        await this.renderDashedDottedBorder(
+                            border.color,
+                            border.width,
+                            side,
+                            paint.curves,
+                            BORDER_STYLE.DOTTED
+                        );
+                    } else if (border.style === BORDER_STYLE.DOUBLE) {
+                        await this.renderDoubleBorder(border.color, border.width, side, paint.curves);
+                    } else {
+                        await this.renderSolidBorder(border.color, side, paint.curves);
+                    }
+                }
+                side++;
+            }
+        };
+        if (boundsList.length === 1 && boundsList[0].isEqual(paint.container.bounds)) {
+            await doPaint(paint);
+        } else {
+            for (let i = 0; i < boundsList.length; i++) {
+                await doPaint(paint.cloneFromNewBounds(boundsList[i]));
+            }
         }
     }
 

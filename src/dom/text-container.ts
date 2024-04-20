@@ -2,6 +2,7 @@ import {CSSParsedDeclaration} from '../css/index';
 import {TEXT_TRANSFORM} from '../css/property-descriptors/text-transform';
 import {parseTextBounds, TextBounds} from '../css/layout/text';
 import {Context} from '../core/context';
+import {Bounds, nextLine} from '../css/layout/bounds';
 
 export class TextContainer {
     text: string;
@@ -10,6 +11,26 @@ export class TextContainer {
     constructor(context: Context, node: Text, styles: CSSParsedDeclaration) {
         this.text = transform(node.data, styles.textTransform);
         this.textBounds = parseTextBounds(context, this.text, styles, node);
+    }
+
+    lineboxBounds(): Bounds[] {
+        const lineBounds: Bounds[] = [];
+        let bounds: Bounds | null = null;
+        this.textBounds.forEach((t) => {
+            if (!bounds) {
+                bounds = t.bounds;
+                return;
+            }
+            if (nextLine(bounds, t.bounds)) {
+                lineBounds.push(bounds);
+                bounds = t.bounds;
+            }
+            bounds = bounds.join(t.bounds);
+        });
+        if (bounds) {
+            lineBounds.push(bounds);
+        }
+        return lineBounds;
     }
 }
 

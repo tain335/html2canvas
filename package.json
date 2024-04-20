@@ -97,7 +97,7 @@
     "yargs": "^17.0.1"
   },
   "scripts": {
-    "prebuild": "rimraf dist/ && rimraf build/ && mkdirp dist && mkdirp build",
+    "prebuild": "rimraf dist/ && rimraf build/ && mkdir -p dist && mkdir -p build",
     "build": "tsc --module commonjs && rollup -c rollup.config.ts && npm run build:create-reftest-list && npm run build:testrunner && npm run build:minify",
     "build:testrunner": "rollup -c tests/rollup.config.ts",
     "build:minify": "uglifyjs --compress --comments /^!/ -o dist/html2canvas.min.js --mangle -- dist/html2canvas.js",
