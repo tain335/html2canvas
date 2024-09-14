@@ -12,7 +12,8 @@ export const color: ITypeDescriptor<Color> = {
         if (value.type === TokenType.FUNCTION) {
             const colorFunction = SUPPORTED_COLOR_FUNCTIONS[value.name];
             if (typeof colorFunction === 'undefined') {
-                throw new Error(`Attempting to parse an unsupported color function "${value.name}"`);
+                // throw new Error(`Attempting to parse an unsupported color function "${value.name}"`);
+                return COLORS.TRANSPARENT;
             }
             return colorFunction(context, value.values);
         }

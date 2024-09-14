@@ -29,6 +29,7 @@ export interface CloneOptions {
     ignoreElements?: (element: Element) => boolean;
     onclone?: (document: Document, element: HTMLElement) => void;
     allowTaint?: boolean;
+    waitForFonts?: boolean;
 }
 
 export interface WindowOptions {
@@ -69,7 +70,7 @@ export class DocumentCloner {
         this.documentElement = this.cloneNode(element.ownerDocument.documentElement, false) as HTMLElement;
     }
 
-    toIFrame(ownerDocument: Document, windowSize: Bounds): Promise<HTMLIFrameElement> {
+    toIFrame(ownerDocument: Document, windowSize: Bounds, waitForLoaded: boolean): Promise<HTMLIFrameElement> {
         const iframe: HTMLIFrameElement = createIFrameContainer(ownerDocument, windowSize);
 
         if (!iframe.contentWindow) {
@@ -86,7 +87,7 @@ export class DocumentCloner {
          if window url is about:blank, we can assign the url to current by writing onto the document
          */
 
-        const iframeLoad = iframeLoader(iframe).then(async () => {
+        const iframeLoad = iframeLoader(iframe, waitForLoaded).then(async () => {
             this.scrolledElements.forEach(restoreNodeScroll);
             if (cloneWindow) {
                 cloneWindow.scrollTo(windowSize.left, windowSize.top);
@@ -111,9 +112,10 @@ export class DocumentCloner {
             if (typeof referenceElement === 'undefined') {
                 return Promise.reject(`Error finding the ${this.referenceElement.nodeName} in the cloned document`);
             }
-
-            if (documentClone.fonts && documentClone.fonts.ready) {
-                await documentClone.fonts.ready;
+            if (this.options.waitForFonts !== false) {
+                if (documentClone.fonts && documentClone.fonts.ready) {
+                    await documentClone.fonts.ready;
+                }
             }
 
             if (/(AppleWebKit)/g.test(navigator.userAgent)) {
@@ -529,25 +531,38 @@ const imagesReady = (document: HTMLDocument): Promise<unknown[]> => {
     return Promise.all([].slice.call(document.images, 0).map(imageReady));
 };
 
-const iframeLoader = (iframe: HTMLIFrameElement): Promise<HTMLIFrameElement> => {
+const iframeLoader = (iframe: HTMLIFrameElement, waitForLoaded: boolean): Promise<HTMLIFrameElement> => {
     return new Promise((resolve, reject) => {
         const cloneWindow = iframe.contentWindow;
 
         if (!cloneWindow) {
             return reject(`No window assigned for iframe`);
         }
-
-        const documentClone = cloneWindow.document;
-
-        cloneWindow.onload = iframe.onload = () => {
-            cloneWindow.onload = iframe.onload = null;
+        if (waitForLoaded === false) {
+            const documentClone = cloneWindow.document;
             const interval = setInterval(() => {
-                if (documentClone.body.childNodes.length > 0 && documentClone.readyState === 'complete') {
+                if (
+                    (documentClone.body.childNodes.length > 0 && documentClone.readyState === 'complete') ||
+                    documentClone.readyState === 'interactive'
+                ) {
                     clearInterval(interval);
-                    resolve(iframe);
+                    setTimeout(() => {
+                        resolve(iframe);
+                    }, 2000);
                 }
             }, 50);
-        };
+        } else {
+            const documentClone = cloneWindow.document;
+            cloneWindow.onload = iframe.onload = () => {
+                cloneWindow.onload = iframe.onload = null;
+                const interval = setInterval(() => {
+                    if (documentClone.body.childNodes.length > 0 && documentClone.readyState === 'complete') {
+                        clearInterval(interval);
+                        resolve(iframe);
+                    }
+                }, 50);
+            };
+        }
     });
 };
 

@@ -11,6 +11,7 @@ export type Options = CloneOptions &
     WindowOptions &
     RenderOptions &
     ContextOptions & {
+        waitForLoaded?: boolean;
         backgroundColor: string | null;
         foreignObjectRendering: boolean;
         removeContainer?: boolean;
@@ -87,13 +88,15 @@ const renderElement = async (element: HTMLElement, opts: Partial<Options>): Prom
         } scrolled to ${-windowBounds.left},${-windowBounds.top}`
     );
 
+    const waitForLoaded = opts.waitForLoaded ?? true;
+
     const documentCloner = new DocumentCloner(context, element, cloneOptions);
     const clonedElement = documentCloner.clonedReferenceElement;
     if (!clonedElement) {
         return Promise.reject(`Unable to find element in cloned iframe`);
     }
 
-    const container = await documentCloner.toIFrame(ownerDocument, windowBounds);
+    const container = await documentCloner.toIFrame(ownerDocument, windowBounds, waitForLoaded);
 
     const {width, height, left, top} =
         isBodyElement(clonedElement) || isHTMLElement(clonedElement)
