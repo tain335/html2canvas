@@ -540,15 +540,28 @@ const iframeLoader = (iframe: HTMLIFrameElement, waitForLoaded: boolean): Promis
         }
         if (waitForLoaded === false) {
             const documentClone = cloneWindow.document;
+            const allImageLoaded = () => {
+                return Array.from(documentClone.querySelectorAll('img')).every((img) => img.complete);
+            };
+            const allStyleLoaded = () => {
+                return Array.from(documentClone.querySelectorAll('link[rel="stylesheet"]')).every(
+                    (link) => !!(link as unknown as LinkStyle).sheet
+                );
+            };
+            const timer = setTimeout(() => {
+                clearInterval(interval);
+                resolve(iframe);
+            }, 20000);
             const interval = setInterval(() => {
                 if (
-                    (documentClone.body.childNodes.length > 0 && documentClone.readyState === 'complete') ||
-                    documentClone.readyState === 'interactive'
+                    ((documentClone.body.childNodes.length > 0 && documentClone.readyState === 'complete') ||
+                        documentClone.readyState === 'interactive') &&
+                    allImageLoaded() &&
+                    allStyleLoaded()
                 ) {
+                    clearTimeout(timer);
                     clearInterval(interval);
-                    setTimeout(() => {
-                        resolve(iframe);
-                    }, 2000);
+                    resolve(iframe);
                 }
             }, 50);
         } else {
