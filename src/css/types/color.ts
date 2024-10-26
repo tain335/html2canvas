@@ -12,6 +12,8 @@ export const color: ITypeDescriptor<Color> = {
         if (value.type === TokenType.FUNCTION) {
             const colorFunction = SUPPORTED_COLOR_FUNCTIONS[value.name];
             if (typeof colorFunction === 'undefined') {
+                console.warn('unsupport color function', value.name);
+                debugger;
                 // throw new Error(`Attempting to parse an unsupported color function "${value.name}"`);
                 return COLORS.TRANSPARENT;
             }
@@ -144,9 +146,40 @@ const hsl = (context: Context, args: CSSValue[]): number => {
     return pack(r * 255, g * 255, b * 255, a);
 };
 
+function lab2rgb(lab: number[]) {
+    let y = (lab[0] + 16) / 116,
+        x = lab[1] / 500 + y,
+        z = y - lab[2] / 200,
+        r,
+        g,
+        b;
+
+    x = 0.95047 * (x * x * x > 0.008856 ? x * x * x : (x - 16 / 116) / 7.787);
+    y = 1.0 * (y * y * y > 0.008856 ? y * y * y : (y - 16 / 116) / 7.787);
+    z = 1.08883 * (z * z * z > 0.008856 ? z * z * z : (z - 16 / 116) / 7.787);
+
+    r = x * 3.2406 + y * -1.5372 + z * -0.4986;
+    g = x * -0.9689 + y * 1.8758 + z * 0.0415;
+    b = x * 0.0557 + y * -0.204 + z * 1.057;
+
+    r = r > 0.0031308 ? 1.055 * Math.pow(r, 1 / 2.4) - 0.055 : 12.92 * r;
+    g = g > 0.0031308 ? 1.055 * Math.pow(g, 1 / 2.4) - 0.055 : 12.92 * g;
+    b = b > 0.0031308 ? 1.055 * Math.pow(b, 1 / 2.4) - 0.055 : 12.92 * b;
+
+    return [Math.max(0, Math.min(1, r)) * 255, Math.max(0, Math.min(1, g)) * 255, Math.max(0, Math.min(1, b)) * 255];
+}
+
+const lab = (_context: Context, args: CSSValue[]): number => {
+    const tokens = args.filter(nonFunctionArgSeparator);
+    const lab = tokens.map(getTokenColorValue);
+    const [r, g, b] = lab2rgb(lab);
+    return pack(r, g, b, 1);
+};
+
 const SUPPORTED_COLOR_FUNCTIONS: {
     [key: string]: (context: Context, args: CSSValue[]) => number;
 } = {
+    lab: lab,
     hsl: hsl,
     hsla: hsl,
     rgb: rgb,
